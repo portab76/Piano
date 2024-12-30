@@ -146,24 +146,81 @@
 
         #partitura textarea {
             width: -webkit-fill-available;
-            height: calc(100% - 30px);
-        }
-		#partitura span {
-			font-family: monospace;
-			font-size: 8px;
+            height: calc(100% - 5px);
         }
 		
 		#partitura {
-        position: fixed;
-        top: 45px; /* Just below the toolbar */
-        left: 5px;
-        bottom: 275px; /* Just above the pianoContainer */
-        width: 50%;
-        background: #fff;
-        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-        overflow-y: hidden;
-    }
+            position: fixed;
+            top: 45px; /* Just below the toolbar */
+            left: 5px;
+            bottom: 275px; /* Just above the pianoContainer */
+            width: 50%;
+            background: #fff;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: hidden;
+        }
 		
+        #partitura2 {
+            position: fixed;
+            top: 45px; /* Just below the toolbar */
+            left: 50%;
+            bottom: 275px; /* Just above the pianoContainer */
+            width: 50%;
+            background: #fff;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: hidden;
+            padding: 5px;
+        }
+
+        /*** SWITCH ***/
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .swText{
+            position: relative;
+            top: -10px;
+        }
+
     </style>
 </head>
 <body>
@@ -184,61 +241,126 @@
 	
 	<div id="partitura">
 	    <textarea id="textareaPistas"></textarea>
-        <br>
-        <span>Duration = W: 2, H: 1, Q: 0.5, E: 0.25, S: 0.125, T: 0.0625, X: 0.03125 (Segundos)</span>
     </div>
+    <div id="partitura2">
+        <br>
+        <div id="responseContainer" class="response"></div>
 
+        <br>
+
+        <label class="switch">
+            <input type="checkbox" class="toggleSwitch" data-switch-id="1">
+            <span class="slider"></span>
+        </label>
+        <span class="swText" id="switchState1">Centrar Nota en Piano</span>
+    
+        <br>
+        <label class="switch">
+            <input type="checkbox" class="toggleSwitch" data-switch-id="2">
+            <span class="slider"></span>
+        </label>
+        <span class="swText" id="switchState2">Switch 2 is OFF</span>
+
+
+    </div>   
+    
     <div class="pianoContainer">
         <div id="piano" class="piano">
             <!-- Aquí van las teclas del piano -->
         </div>
     </div>
 
-
     <div id="overlay" onclick="cerrarPopup()"></div>
     <div id="popup">
         hola popup
     </div>
     
-
-    <button id="centerButton">Centrar Piano</button>
-
-
     <script>
+        var centrarTecla = false;
+        const switches = document.querySelectorAll('.toggleSwitch');
 
+        switches.forEach(switchElement => {
+            switchElement.addEventListener('change', function() {
+                const switchId = this.getAttribute('data-switch-id');
+                const switchState = document.getElementById(`switchState${switchId}`);
+                if (switchId == 1 ){ // centrar SCROLL en piano de TECLA en PARTITURA
+                    if (this.checked) 
+                        centrarTecla = true;
+                    else 
+                        centrarTecla = false;
+                } else{
+                    if (this.checked) 
+                        switchState.textContent = `Switch ${switchId} is ON`;
+                    else 
+                        switchState.textContent = `Switch ${switchId} is OFF`;              
+                }
+            });
+        });
 
-document.getElementById('centerButton').addEventListener('click', function() {
-    var piano = document.getElementById('piano');
-    var pianoContainer = document.querySelector('.pianoContainer');
-    
-    // Calculamos la posición al centro
-    var centerPosition = (piano.scrollWidth - pianoContainer.clientWidth) / 2;
-    
-    console.log(centerPosition);
-    // Ajustamos el scroll
-    pianoContainer.scrollLeft = centerPosition;
-});
+        // mostrar las teclas activas
+        var intervalId;
+        var count = 0; 
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+        function isNumber(value) { return typeof value === 'number' && !isNaN(value); }
 
+        function makeRequest() {
+            fetch('http://127.0.0.1:5000/notas')
+            .then(response => response.json()) // Cambia .text() a .json()
+            .then(data => {
+                var responseContainer = document.getElementById('responseContainer');
+                responseContainer.innerHTML = ++count + " " + JSON.stringify(data) + '<br>';
+                responseContainer.scrollTop = responseContainer.scrollHeight;
+                // Comprueba si el array contiene el valor "-1"
+                if (data.includes("-1")) {
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                        return;
+                    }
+                }
+                data.forEach(element => {         
+                    const tecla = document
+                    .querySelector(`.tecla[data-number="${element}"]`);
+                    if (centrarTecla)
+                        centerKey(tecla);
+                    // TODO:ESTABLECER DURACION DE LA TECLA
+                    activarTecla(tecla,element,100);
+
+                });
+
+            })
+            .catch(error => console.error('Error:', error));
+        }
+	
+		async function activarTecla(tecla, note, duration) {
+			tecla.classList.add('activa');
+			await delay(duration);
+			tecla.classList.remove('activa');
+			teclasPresionadas.delete(note);
+		}
+
+        function centerKey(tecla) {
+            var piano = document.getElementById('piano');
+            var pianoContainer = document.querySelector('.pianoContainer');
+            const pianoContainerWidth = pianoContainer.offsetWidth;
+            const pianoRect = piano.getBoundingClientRect();
+            const teclaRect = tecla.getBoundingClientRect();
+            aaa = teclaRect.left < pianoRect.left || teclaRect.right > pianoRect.right
+            //console.log (aaa + " LEFT:" + teclaRect.left +"<"+ pianoRect.left +"|| RIGHT: "+ teclaRect.right +">"+ pianoRect.right);
+            // Verificar si la tecla está fuera de la vista del contenedor
+            //if (teclaRect.left < pianoRect.left || teclaRect.right > pianoRect.right) {
+                const teclaCenter = teclaRect.left + teclaRect.width / 2;
+                const pianoCenter = pianoRect.left + pianoContainerWidth / 2;
+                const newScrollLeft = piano.scrollLeft + (teclaCenter - pianoCenter);
+                pianoContainer.scrollLeft = newScrollLeft;
+            //}
+        }
+
+        //************************************************
 
         let host = 'http://127.0.0.1:5000';
         let teclasPresionadas = new Set();
         let touchesActivos = {}; // Rastrear puntos táctiles activos por identificador
-
-        // Duraciones en segundos de cada tipo de nota
-        const duraciones = {
-            'W': 2.0, // Redonda
-            'H': 1.0, // Blanca
-            'Q': 0.5, // Negra
-            'E': 0.25, // Corchea
-            'S': 0.125, // Semicorchea
-            'T': 0.0625, // Fusa
-            'X': 0.03125 // Semifusa
-        };
-        let stopAnimation = false;
-
-        const pianoContainer = document.querySelector('.pianoContainer');
-        const piano = document.getElementById('piano');
-
 
         function establecerHost() {
             const hostInput = document.getElementById('host').value;
@@ -248,14 +370,14 @@ document.getElementById('centerButton').addEventListener('click', function() {
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => {         
             cargarInstrumentos();
             const piano = document.getElementById('piano');
             const notas = {'A0': 21, 'A#0': 22, 'B0': 23, 'C1': 24, 'C#1': 25, 'D1': 26, 'D#1': 27, 'E1': 28, 'F1': 29, 'F#1': 30, 'G1': 31, 'G#1': 32, 'A1': 33, 'A#1': 34, 'B1': 35,'C2': 36, 'C#2': 37, 'D2': 38, 'D#2': 39, 'E2': 40, 'F2': 41, 'F#2': 42, 'G2': 43, 'G#2': 44, 'A2': 45, 'A#2': 46, 'B2': 47,'C3': 48, 'C#3': 49, 'D3': 50, 'D#3': 51, 'E3': 52, 'F3': 53, 'F#3': 54, 'G3': 55, 'G#3': 56, 'A3': 57, 'A#3': 58, 'B3': 59,'C4': 60, 'C#4': 61, 'D4': 62, 'D#4': 63, 'E4': 64, 'F4': 65, 'F#4': 66, 'G4': 67, 'G#4': 68, 'A4': 69, 'A#4': 70, 'B4': 71,'C5': 72, 'C#5': 73, 'D5': 74, 'D#5': 75, 'E5': 76, 'F5': 77, 'F#5': 78, 'G5': 79, 'G#5': 80, 'A5': 81, 'A#5': 82, 'B5': 83,'C6': 84, 'C#6': 85, 'D6': 86, 'D#6': 87, 'E6': 88, 'F6': 89, 'F#6': 90, 'G6': 91, 'G#6': 92, 'A6': 93, 'A#6': 94, 'B6': 95,'C7': 96, 'C#7': 97, 'D7': 98, 'D#7': 99, 'E7': 100, 'F7': 101, 'F#7': 102, 'G7': 103, 'G#7': 104, 'A7': 105, 'A#7': 106, 'B7': 107,'C8': 108};
             const teclas = [{ note: 'C1', type: 'blanca' },{ note: 'C#1', type: 'negra' },{ note: 'D1', type: 'blanca' },{ note: 'D#1', type: 'negra' },{ note: 'E1', type: 'blanca' },{ note: 'F1', type: 'blanca' },{ note: 'F#1', type: 'negra' },{ note: 'G1', type: 'blanca' },{ note: 'G#1', type: 'negra' },{ note: 'A1', type: 'blanca' },{ note: 'A#1', type: 'negra' },{ note: 'B1', type: 'blanca' },{ note: 'C2', type: 'blanca' },{ note: 'C#2', type: 'negra' },{ note: 'D2', type: 'blanca' },{ note: 'D#2', type: 'negra' },{ note: 'E2', type: 'blanca' },{ note: 'F2', type: 'blanca' },{ note: 'F#2', type: 'negra' },{ note: 'G2', type: 'blanca' },{ note: 'G#2', type: 'negra' },{ note: 'A2', type: 'blanca' },{ note: 'A#2', type: 'negra' },{ note: 'B2', type: 'blanca' },{ note: 'C3', type: 'blanca' },{ note: 'C#3', type: 'negra' },{ note: 'D3', type: 'blanca' },{ note: 'D#3', type: 'negra' },{ note: 'E3', type: 'blanca' },{ note: 'F3', type: 'blanca' },{ note: 'F#3', type: 'negra' },{ note: 'G3', type: 'blanca' },{ note: 'G#3', type: 'negra' },{ note: 'A3', type: 'blanca' },{ note: 'A#3', type: 'negra' },{ note: 'B3', type: 'blanca' },{ note: 'C4', type: 'blanca' },{ note: 'C#4', type: 'negra' },{ note: 'D4', type: 'blanca' },{ note: 'D#4', type: 'negra' },{ note: 'E4', type: 'blanca' },{ note: 'F4', type: 'blanca' },{ note: 'F#4', type: 'negra' },{ note: 'G4', type: 'blanca' },{ note: 'G#4', type: 'negra' },{ note: 'A4', type: 'blanca' },{ note: 'A#4', type: 'negra' },{ note: 'B4', type: 'blanca' },{ note: 'C5', type: 'blanca' },{ note: 'C#5', type: 'negra' },{ note: 'D5', type: 'blanca' },{ note: 'D#5', type: 'negra' },{ note: 'E5', type: 'blanca' },{ note: 'F5', type: 'blanca' },{ note: 'F#5', type: 'negra' },{ note: 'G5', type: 'blanca' },{ note: 'G#5', type: 'negra' },{ note: 'A5', type: 'blanca' },{ note: 'A#5', type: 'negra' },{ note: 'B5', type: 'blanca' },{ note: 'C6', type: 'blanca' },{ note: 'C#6', type: 'negra' },{ note: 'D6', type: 'blanca' },{ note: 'D#6', type: 'negra' },{ note: 'E6', type: 'blanca' },{ note: 'F6', type: 'blanca' },{ note: 'F#6', type: 'negra' },{ note: 'G6', type: 'blanca' },{ note: 'G#6', type: 'negra' },{ note: 'A6', type: 'blanca' },{ note: 'A#6', type: 'negra' },{ note: 'B6', type: 'blanca' },{ note: 'C7', type: 'blanca' },{ note: 'C#7', type: 'negra' },{ note: 'D7', type: 'blanca' },{ note: 'D#7', type: 'negra' },{ note: 'E7', type: 'blanca' },{ note: 'F7', type: 'blanca' },{ note: 'F#7', type: 'negra' },{ note: 'G7', type: 'blanca' },{ note: 'G#7', type: 'negra' },{ note: 'A7', type: 'blanca' },{ note: 'A#7', type: 'negra' },{ note: 'B7', type: 'blanca' }];
             teclas.forEach(tecla => {tecla.number = notas[tecla.note];});
             //console.log(teclas);       
-
+            // añade las teclas al piano
             teclas.forEach(tecla => {
                 const teclaDiv = document.createElement('div');
                 teclaDiv.className = `tecla ${tecla.type}`;
@@ -267,7 +389,6 @@ document.getElementById('centerButton').addEventListener('click', function() {
                 teclaDiv.addEventListener('touchcancel', manejarTouchEnd, { passive: false });
                 teclaDiv.addEventListener('mousedown', manejarMouseDown);
                 teclaDiv.addEventListener('mouseup', manejarMouseUp);
-
                 const notaSpan = document.createElement('span');
                 notaSpan.className = 'nota';
                 notaSpan.textContent = tecla.note + ' (' + tecla.number + ')';
@@ -275,6 +396,19 @@ document.getElementById('centerButton').addEventListener('click', function() {
 
                 piano.appendChild(teclaDiv);
             });
+            // carga el texarea con la partitura por defecto
+            fetch(`${host}/pistas`)
+                .then(response => response.json())
+                .then(data => {
+                    const textareaPistas = document.getElementById('textareaPistas'); 
+                    textareaPistas.value = JSON.stringify(data, null, 2); // Convierte el objeto JSON a string con formato 
+                })
+                .catch(error => console.error('Error al cargar el JSON:', error)
+            );
+            // Ajustamos el scroll de PIANO al centro
+            var pianoContainer = document.querySelector('.pianoContainer');
+            var centerPosition = (piano.scrollWidth - pianoContainer.clientWidth) / 2;
+            pianoContainer.scrollLeft = centerPosition;
         });
 
         function manejarTouchStart(event) {
@@ -305,7 +439,9 @@ document.getElementById('centerButton').addEventListener('click', function() {
                 delete touchesActivos[touch.identifier];
                 desactivarTecla(touch.clientX, touch.clientY);
             }
+
             verificarTeclasActivas();
+
         }
 
         function manejarMouseDown(event) {
@@ -322,8 +458,9 @@ document.getElementById('centerButton').addEventListener('click', function() {
                 const note = elemento.dataset.note;
 				const instrumento = document.getElementById('instrumento').value;
                 if (!teclasPresionadas.has(note)) {
-                    teclasPresionadas.add(note);
-                    elemento.classList.add('activa');
+                    teclasPresionadas.forEach(note => {
+                        desactivarNota(note);
+                    });
                     fetch(`${host}/tocar_nota`, {
                         method: 'POST',
                         headers: {
@@ -331,7 +468,27 @@ document.getElementById('centerButton').addEventListener('click', function() {
                         },
                         body: JSON.stringify({ note: note, action: 'press', instrumento: instrumento })
                     });
+                    teclasPresionadas.add(note);
+                    elemento.classList.add('activa');
+                    console.log("ACTIVA-->"+note);
                 }
+            }
+        }
+
+        function desactivarNota(note) { 
+            const instrumento = document.getElementById('instrumento').value;
+            if (teclasPresionadas.has(note)) {
+                teclasPresionadas.delete(note);
+                console.log("kill-->"+note);
+                fetch(`${host}/tocar_nota`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(
+                        { note: note, action: 'release', instrumento: instrumento }
+                    )
+                });
             }
         }
 
@@ -343,6 +500,7 @@ document.getElementById('centerButton').addEventListener('click', function() {
                 if (teclasPresionadas.has(note)) {
                     teclasPresionadas.delete(note);
                     elemento.classList.remove('activa');
+                    console.log("DESACTIVA-->"+note);
                     fetch(`${host}/tocar_nota`, {
                         method: 'POST',
                         headers: {
@@ -377,78 +535,21 @@ document.getElementById('centerButton').addEventListener('click', function() {
             document.getElementById('overlay').style.display = 'none';
         }
 
-		function delay(ms) {
-			return new Promise(resolve => setTimeout(resolve, ms));
-		}
-		
-		async function activarTecla(tecla, note, duration) {
-			tecla.classList.add('activa');
-			//tiempo = duraciones[duracion]*1000;
-            //tiempo = duracion*1000;
-            centerKey(tecla);
-			//console.log("TIEMPO: "+ duration );
-			await delay(duration);
-			tecla.classList.remove('activa');
-			teclasPresionadas.delete(note);
-		}
-
-        function centerKey(tecla) {
-            var piano = document.getElementById('piano');
-            var pianoContainer = document.querySelector('.pianoContainer');
-            const pianoContainerWidth = pianoContainer.offsetWidth;
-            const pianoRect = piano.getBoundingClientRect();
-            const teclaRect = tecla.getBoundingClientRect();
-
-
-            aaa = teclaRect.left < pianoRect.left || teclaRect.right > pianoRect.right
-
-            console.log (aaa + " LEFT:" + teclaRect.left +"<"+ pianoRect.left +"|| RIGHT: "+ teclaRect.right +">"+ pianoRect.right);
-
-
-            // Verificar si la tecla está fuera de la vista del contenedor
-            if (teclaRect.left < pianoRect.left || teclaRect.right > pianoRect.right) {
-                const teclaCenter = teclaRect.left + teclaRect.width / 2;
-                const pianoCenter = pianoRect.left + pianoContainerWidth / 2;
-                const newScrollLeft = piano.scrollLeft + (teclaCenter - pianoCenter);
-
-                pianoContainer.scrollLeft = newScrollLeft;
-
-
-            }
-        }
-
-		async function activarNotasConsecutivas(notasJson,pistaKey) {         
-            const pistas = JSON.parse(notasJson);
-            for (const pista of pistas) 
-            {
-                if (stopAnimation) break;
-                for (const nota of pista.notes) { 
-                    if (stopAnimation) break;
-                    //console.log(`Note: ${nota.note}, Time: ${nota.time}, Type: ${nota.type}, Velocity: ${nota.velocity}`); 
-                    const tecla = document.querySelector(`.tecla[data-number="${nota.note}"]`);
-                    if (tecla && tecla.classList.contains('tecla')) {
-                        const note = tecla.dataset.note;
-                        if (!teclasPresionadas.has(note)) {
-                            teclasPresionadas.add(note);
-                            await activarTecla(tecla, note,nota.time);
-                        }
-                    }
-                }
-                break
-            };
-		}		
-		
         function pararPistas() {
-            stopAnimation = true;
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
             fetch(`${host}/stop`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
                 }
             }).then(response => {
-                //console.log(response);
+                console.log(response);
             });
         }
+
         function enviarPistas() {
 			const pistas = document.getElementById('textareaPistas').value;
             fetch(`${host}/enviar_pistas`, {
@@ -464,13 +565,9 @@ document.getElementById('centerButton').addEventListener('click', function() {
                     alert('Error al enviar las pistas');
                 }
             });
-			const pistasJson = JSON.parse(pistas);
-			Object.keys(pistasJson).forEach(pistaKey => {
-                const pista = pistasJson[pistaKey];
-				// Llama a la función para activar las notas de forma consecutiva
-				stopAnimation = false;
-                activarNotasConsecutivas(pistas,pistaKey);
-			});
+            if (!intervalId) {
+                intervalId = setInterval(makeRequest, 50); 
+            }
         }
 
         function cargarInstrumentos() {
@@ -498,37 +595,12 @@ document.getElementById('centerButton').addEventListener('click', function() {
                 body: JSON.stringify({ instrumento: instrumento })
             });
         }
-
-        // Función para cargar el archivo PARTITURA JSON
-        function loadPistasJSON() {
-
-            fetch(`${host}/pistas`)
-                .then(response => response.json())
-                .then(data => {
-                    const textareaPistas = document.getElementById('textareaPistas'); 
-                    textareaPistas.value = JSON.stringify(data, null, 2); // Convierte el objeto JSON a string con formato 
-                })
-                .catch(error => console.error('Error al cargar el JSON:', error)
-            );
-        
-            var piano = document.getElementById('piano');
-            var pianoContainer = document.querySelector('.pianoContainer');
-    
-             // Ajustamos el scroll de PIANO al centro
-            var centerPosition = (piano.scrollWidth - pianoContainer.clientWidth) / 2;
-            console.log(centerPosition);
-            pianoContainer.scrollLeft = centerPosition;
-        }
-
-        // Llamar a la función para cargar el JSON cuando la página se haya cargado
-        window.onload = loadPistasJSON;
-
-
-        // FUNCION PARA DESPLAZAR EL PIANO
+        //
+        // FUNCION SCROLL PARA DESPLAZAR EL PIANO
+        //
+        const pianoContainer = document.querySelector('.pianoContainer');
         const playButton = document.getElementById('playButton');
         let noteTimers = {};
-
-
         let isDragging = false;
         let startX;
         let scrollLeft;
@@ -571,7 +643,6 @@ document.getElementById('centerButton').addEventListener('click', function() {
             const walk = (startX - x) * 3; // Invertir el sentido de desplazamiento
             pianoContainer.scrollLeft = scrollLeft - walk;
         });
-
 
     </script>
 </body>

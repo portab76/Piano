@@ -16,10 +16,12 @@ CORS(app, resources={
     r"/enviar_pistas": {"origins": "*"},
     r"/cambiar_instrumento": {"origins": "*"},
     r"/stop": {"origins": "*"},
-    r"/pistas": {"origins": "*"}
+    r"/pistas": {"origins": "*"},
+    r"/notas": {"origins": "*"}
 })
 playing = False
 stop_event = threading.Event()
+notas_activas_set = set()
 
 # Inicializar pygame y pygame.midi
 pygame.init()
@@ -41,6 +43,10 @@ def convertir_nota_a_numero(nota):
         'C8': 108
     }
     return notas.get(nota)
+@app.route('/notas', methods=['GET'])
+def notas_activas():
+    global notas_activas_set
+    return jsonify(list(notas_activas_set))
 
 @app.route('/tocar_nota', methods=['POST'])
 def tocar_nota():
@@ -86,6 +92,7 @@ def cambiar_instrumento():
 @app.route('/enviar_pistas', methods=['POST'])
 def enviar_pistas():
     global playing
+    global notas_activas_set
     if playing:
         return "Already playing"
     data = request.get_json()
@@ -94,42 +101,32 @@ def enviar_pistas():
         return "Invalid JSON"
     playing = True
     stop_event.clear()
-    threading.Thread(target=play_tracks, args=(pistas_procesadas,)).start()
-    return "Playing"
-
-# Ruta para reproducir el archivo JSON guardado
-@app.route('/test', methods=['GET'])
-def reproducir_json():
-    global playing
-    if playing:
-        return "Already playing"
-    json_filepath = r'C:\Code\mid\note.json'
-    with open(json_filepath, 'r') as json_file:
-        pistas_procesadas = json.load(json_file)
-    if not pistas_procesadas:
-        return "Invalid JSON"
-    playing = True
-    stop_event.clear()
+    notas_activas_set.clear()
     threading.Thread(target=play_tracks, args=(pistas_procesadas,)).start()
     return "Playing"
 
 # Función para reproducir las pistas procesadas
 def play_tracks(pistas_procesadas):
-    global playing
+    global playing 
     for pista in pistas_procesadas:
         for note in pista['notes']:
+            notas_activas_set.add(note['note'])
             if stop_event.is_set():
                 playing = False
                 return
             if note['type'] == 'note_on':
                 play_note(note['note'], note['velocity'])
+                
             elif note['type'] == 'note_off':
                 stop_note(note['note'])
             time.sleep(note['time'] / 1000.0)  # Convertir tiempo a segundos
+            notas_activas_set.discard(note['note'])
+            #print (notas_activas_set)
+            
     playing = False
-
+    notas_activas_set.add('-1')
 # Función para reproducir una nota
-def play_note(note, velocity):
+def play_note(note, velocity):  
     midi_out.note_on(note, velocity)
 
 # Función para detener una nota
@@ -139,6 +136,8 @@ def stop_note(note):
 # Ruta para detener la reproducción
 @app.route('/stop', methods=['GET'])
 def stop():
+    global notas_activas_set
+    notas_activas_set.clear()
     global playing
     if not playing:
         return "Not playing"
