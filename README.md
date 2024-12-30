@@ -1,4 +1,4 @@
-# Piano Server con Frontend Interactivo
+# Piano MiDI con Frontend Interactivo
 
 Este proyecto combina un servidor Python (`PianoServer.py`) con una interfaz gráfica en HTML para simular y controlar un piano virtual con múltiples pistas y reproducción MIDI. Está diseñado para proporcionar una experiencia de usuario interactiva que permite reproducir partituras en formato JSON y visualizar animaciones sincronizadas de las teclas.
 
