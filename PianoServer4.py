@@ -108,6 +108,7 @@ def enviar_pistas():
 # Función para reproducir las pistas procesadas
 def play_tracks(pistas_procesadas):
     global playing 
+    slowdown_factor = 3  # Factor de ralentización
     for pista in pistas_procesadas:
         for note in pista['notes']:
             notas_activas_set.add(note['note'])
@@ -119,10 +120,10 @@ def play_tracks(pistas_procesadas):
                 
             elif note['type'] == 'note_off':
                 stop_note(note['note'])
-            time.sleep(note['time'] / 1000.0)  # Convertir tiempo a segundos
-            notas_activas_set.discard(note['note'])
+            #time.sleep(note['time'] / 1000.0)  # Convertir tiempo a segundos
             #print (notas_activas_set)
-            
+            time.sleep((note['time'] / 1000.0) * slowdown_factor)
+            notas_activas_set.discard(note['note'])
     playing = False
     notas_activas_set.add('-1')
 # Función para reproducir una nota

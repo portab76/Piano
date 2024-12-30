@@ -220,7 +220,12 @@
             position: relative;
             top: -10px;
         }
-
+        /**/
+        .instrument-button {
+            font-size: 20px;
+            padding: 10px 20px;
+            margin: 5px;
+        }
     </style>
 </head>
 <body>
@@ -260,7 +265,9 @@
             <span class="slider"></span>
         </label>
         <span class="swText" id="switchState2">Switch 2 is OFF</span>
-
+        <br>
+        <button class="instrument-button" id="prevInstrument">Previous Instrument</button>
+        <button class="instrument-button" id="nextInstrument">Next Instrument</button>
 
     </div>   
     
@@ -276,6 +283,28 @@
     </div>
     
     <script>
+
+        const prevInstrumentButton = document.getElementById('prevInstrument');
+        const nextInstrumentButton = document.getElementById('nextInstrument');
+        const instrumentoSelect = document.getElementById('instrumento');
+
+        prevInstrumentButton.addEventListener('click', () => {
+            const currentIndex = instrumentoSelect.selectedIndex;
+            if (currentIndex > 0) {
+                instrumentoSelect.selectedIndex = currentIndex - 1;
+                cambiarInstrumento();
+            }
+        });
+
+        nextInstrumentButton.addEventListener('click', () => {
+            const currentIndex = instrumentoSelect.selectedIndex;
+            if (currentIndex < instrumentoSelect.options.length - 1) {
+                instrumentoSelect.selectedIndex = currentIndex + 1;
+                cambiarInstrumento();
+            }
+        });
+        
+
         var centrarTecla = false;
         const switches = document.querySelectorAll('.toggleSwitch');
 
@@ -566,7 +595,7 @@
                 }
             });
             if (!intervalId) {
-                intervalId = setInterval(makeRequest, 50); 
+                intervalId = setInterval(makeRequest, 500); 
             }
         }
 
