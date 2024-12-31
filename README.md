@@ -1,6 +1,6 @@
 # Piano MiDI Json con Frontend html Interactivo
 
-![Piano html optimizado pantalla táctitles](https://youtube.com/shorts/HpyIE5fVtbc?si=3noHl-wVBYNZtm66)
+https://youtube.com/shorts/HpyIE5fVtbc?si=3noHl-wVBYNZtm66
 
 Este proyecto combina un servidor Python (`PianoServer.py`) con una interfaz gráfica en HTML para simular y controlar un piano virtual con múltiples pistas y reproducción MIDI. Está diseñado para proporcionar una experiencia de usuario interactiva que permite reproducir partituras en formato JSON y visualizar animaciones sincronizadas de las teclas.
 
