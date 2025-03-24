@@ -28,7 +28,7 @@ pygame.init()
 pygame.midi.init()
 
 # Abrir el dispositivo MIDI
-midi_out = pygame.midi.Output(3)
+midi_out = pygame.midi.Output(0)
 
 def convertir_nota_a_numero(nota):
     notas = {
